@@ -4,11 +4,7 @@ import { cache } from 'react';
 import { getDateRange, validateArticle, formatArticle } from '@/lib/utils';
 import { POPULAR_STOCK_SYMBOLS } from '@/lib/constants';
 
-// ---------------------------------------------------------------------------
-// CRITICAL FIX: The original used process.env.NEXT_PUBLIC_FINNHUB_API_KEY
-// as a fallback which exposes the secret in the client-side JS bundle.
-// API keys must ONLY live in server-side env vars (no NEXT_PUBLIC_ prefix).
-// ---------------------------------------------------------------------------
+
 const FINNHUB_BASE = 'https://finnhub.io/api/v1';
 
 function getApiKey(): string {
@@ -17,7 +13,7 @@ function getApiKey(): string {
   return key;
 }
 
-// ─── Generic typed fetch with ISR support ────────────────────────────────
+
 async function fetchFinnhub<T>(
   path: string,
   revalidateSeconds?: number
@@ -29,7 +25,14 @@ async function fetchFinnhub<T>(
     ? { next: { revalidate: revalidateSeconds } }
     : { cache: 'no-store' };
 
+
+  const start = Date.now();
+
   const res = await fetch(url, options);
+
+  
+  const end = Date.now();
+  console.log(`Finnhub API [${path}] latency: ${end - start} ms`);
 
   if (res.status === 429) {
     throw new Error('[Finnhub] Rate limit exceeded. Please try again shortly.');
@@ -41,22 +44,20 @@ async function fetchFinnhub<T>(
   return res.json() as Promise<T>;
 }
 
-// ─── Stock search ─────────────────────────────────────────────────────────
-// React.cache() deduplicates identical calls within a single render pass.
 export const searchStocks = cache(
   async (query?: string): Promise<StockWithWatchlistStatus[]> => {
     try {
       const trimmed = (query ?? '').trim();
 
       if (!trimmed) {
-        // Show top 10 popular stocks when no query provided
+       
         const top10 = POPULAR_STOCK_SYMBOLS.slice(0, 10);
 
         const profiles = await Promise.allSettled(
           top10.map((sym) =>
             fetchFinnhub<Record<string, unknown>>(
               `/stock/profile2?symbol=${encodeURIComponent(sym)}`,
-              3600 // Cache for 1 hour
+              3600 // 
             ).then((profile) => ({ sym, profile }))
           )
         );
